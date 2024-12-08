@@ -26,9 +26,9 @@ impl FromStr for Input {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let lines = input.lines().collect::<Vec<&str>>();
-        let rules_strs =  lines.iter().take_while(|l| !l.is_empty()).collect::<Vec<_>>();
+        let rules_strs = lines.iter().take_while(|l| !l.is_empty()).collect::<Vec<_>>();
         let book_strs: Vec<&str> = lines[rules_strs.len() + 1..].to_vec();
-        let rules:Vec<Vec<u8>> = rules_strs.iter()
+        let rules: Vec<Vec<u8>> = rules_strs.iter()
             .map(|s|
                 s.split('|')
                     .map(|s| u8::from_str(s).unwrap())
@@ -46,28 +46,28 @@ impl FromStr for Input {
 }
 
 fn common(input: Input) -> (i32, i32) {
-    let idx =input.rules.iter().map(|rule| {
+    let idx = input.rules.iter().map(|rule| {
         (rule[0], rule[1])
-    }).collect::<HashSet<(u8,u8)>>();
-    let (correct,incorrect) = input.pages.iter().fold((0,0), |(mut correct,mut incorrect), page| {
+    }).collect::<HashSet<(u8, u8)>>();
+    let (correct, incorrect) = input.pages.iter().fold((0, 0), |(mut correct, mut incorrect), page| {
         let mut sorted_page = page.clone();
-        sorted_page.sort_by( |l,r| {
-            if idx.contains(&(*l,*r)) {
+        sorted_page.sort_by(|l, r| {
+            if idx.contains(&(*l, *r)) {
                 Ordering::Less
-            } else if idx.contains(&(*r,*l)) {
+            } else if idx.contains(&(*r, *l)) {
                 Ordering::Greater
             } else {
                 Ordering::Equal
             }
         });
         if sorted_page.eq(page) {
-            correct += page[page.len()/2] as i32;
+            correct += page[page.len() / 2] as i32;
         } else {
-            incorrect += sorted_page[sorted_page.len()/2] as i32;
+            incorrect += sorted_page[sorted_page.len() / 2] as i32;
         }
         (correct, incorrect)
     });
-    (correct,incorrect)
+    (correct, incorrect)
 }
 
 fn part1(input: Input) -> i32 {

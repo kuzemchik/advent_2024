@@ -1,6 +1,6 @@
+use regex::Regex;
 use std::fs;
 use std::str::FromStr;
-use regex::Regex;
 
 pub fn print() {
     let s = fs::read_to_string("data/03.txt").unwrap();
