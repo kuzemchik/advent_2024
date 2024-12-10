@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::fs;
 use std::str::FromStr;
@@ -20,8 +19,8 @@ struct Input {
 #[derive(Clone)]
 struct Expression {
     expected: i64,
-    values: Vec<String>,
-    values_int: Vec<i64>,
+    values: Vec<i64>,
+    sizes: Vec<usize>,
 }
 
 #[derive(Debug)]
@@ -34,15 +33,15 @@ impl FromStr for Input {
         let expressions = input.lines().map(|l| {
             let parts = l.splitn(2, ": ").collect::<Vec<&str>>();
             let expected = i64::from_str(parts[0]).expect("cannot parse expected value");
-            let values = parts[1].split(" ")
-                .map(|s| s.to_string()).collect::<Vec<String>>();
-            let values_int = values.iter().map(|v| {
-                i64::from_str(v.as_str()).expect("cannot parse value")
+            let strings = parts[1].split(" ").collect::<Vec<&str>>();
+            let values = strings.iter().map(|v| {
+                i64::from_str(v).expect("cannot parse value")
             }).collect::<Vec<i64>>();
+            let sizes = strings.iter().map(|v| v.len()).collect();
             Expression {
                 expected,
                 values,
-                values_int,
+                sizes,
             }
         }).collect::<Vec<Expression>>();
         Ok(Input {
@@ -54,7 +53,7 @@ impl FromStr for Input {
 
 fn part1(input: Input) -> i64 {
     input.expressions.iter().fold(0, |acc, expr: &Expression| {
-        acc + part1_queue_stack(expr.expected, &expr.values_int)
+        acc + part1_queue_stack(expr.expected, &expr.values)
     })
 }
 
@@ -63,21 +62,19 @@ fn part1_queue_stack(expected: i64, values: &[i64]) -> i64 {
     let start = Pos::new(values[0], 0);
     queue.push_back(start);
     while let Some(element) = queue.pop_back() {
-        match element.value.cmp(&expected) {
-            Ordering::Greater => continue,
-            Ordering::Equal => return expected,
-            Ordering::Less => {
-                if element.idx < values.len() - 1 {
-                    let next_val = values[element.idx + 1];
-                    let mul_pos = element.mul(next_val);
-                    if mul_pos.value <= expected {
-                        queue.push_back(mul_pos);
-                    }
-                    let sum_pos = element.sum(next_val);
-                    if sum_pos.value <= expected {
-                        queue.push_back(sum_pos);
-                    }
-                }
+        if element.value > expected {
+            continue;
+        } else if element.value == expected && element.idx == values.len() - 1 {
+            return expected;
+        } else if element.idx < values.len() - 1 {
+            let next = values[element.idx + 1];
+            let mul_pos = element.mul(next);
+            if mul_pos.value <= expected {
+                queue.push_back(mul_pos);
+            }
+            let sum_pos = element.sum(next);
+            if sum_pos.value <= expected {
+                queue.push_back(sum_pos);
             }
         }
     }
@@ -108,10 +105,8 @@ impl Pos {
         }
     }
 
-    fn concat(&self, other: &str) -> Self {
-        let mut str = self.value.to_string();
-        str.push_str(other);
-        let val = i64::from_str(str.as_str()).expect("cannot parse value");
+    fn concat(&self, other: i64, size: usize) -> Self {
+        let val = self.value * (i64::pow(10, size as u32)) + other;
         Pos {
             value: val,
             idx: self.idx + 1,
@@ -121,38 +116,33 @@ impl Pos {
 
 fn part2(input: Input) -> i64 {
     input.expressions.iter().fold(0, |acc, expr: &Expression| {
-        let values_int = expr.values.iter().map(|v| {
-            i64::from_str(v.as_str()).expect("cannot parse value")
-        }).collect::<Vec<i64>>();
-        acc + part2_queue_stack(expr.expected, &expr.values, &values_int)
+        acc + part2_queue_stack(expr.expected, &expr.values, &expr.sizes)
     })
 }
 
-fn part2_queue_stack(expected: i64, values: &[String], values_int: &[i64]) -> i64 {
+fn part2_queue_stack(expected: i64, values: &[i64], sizes: &[usize]) -> i64 {
     let mut queue: Vec<Pos> = Vec::new();
-    let start = Pos::new(values_int[0], 0);
+    let start = Pos::new(values[0], 0);
     queue.push(start);
     while let Some(element) = queue.pop() {
-        match element.value.cmp(&expected) {
-            Ordering::Greater => continue,
-            Ordering::Equal => return expected,
-            Ordering::Less => {
-                if element.idx < values.len() - 1 {
-                    let next = values[element.idx + 1].as_str();
-                    let next_val = values_int[element.idx + 1];
-                    let mul_pos = element.mul(next_val);
-                    if mul_pos.value <= expected {
-                        queue.push(mul_pos);
-                    }
-                    let sum_pos = element.sum(next_val);
-                    if sum_pos.value <= expected {
-                        queue.push(sum_pos);
-                    }
-                    let concat_pos = element.concat(next);
-                    if concat_pos.value <= expected {
-                        queue.push(concat_pos);
-                    }
-                }
+        if element.value > expected {
+            continue;
+        } else if element.value == expected && element.idx == sizes.len() - 1 {
+            return expected;
+        } else if element.idx < sizes.len() - 1 {
+            let size = sizes[element.idx + 1];
+            let next = values[element.idx + 1];
+            let mul_pos = element.mul(next);
+            if mul_pos.value <= expected {
+                queue.push(mul_pos);
+            }
+            let sum_pos = element.sum(next);
+            if sum_pos.value <= expected {
+                queue.push(sum_pos);
+            }
+            let concat_pos = element.concat(next, size);
+            if concat_pos.value <= expected {
+                queue.push(concat_pos);
             }
         }
     }
@@ -278,6 +268,13 @@ mod tests {
     }
 
     #[test]
+    fn test_part1_stack() {
+        let s = fs::read_to_string("data/07.txt").unwrap();
+        let input = Input::from_str(s.as_str()).expect("cannot parse input");
+        let _res = part1(input);
+    }
+
+    #[test]
     fn test_part2() {
         let res = part2(input());
         assert_eq!(11387, res)
@@ -286,6 +283,6 @@ mod tests {
     fn test_part2_stack() {
         let s = fs::read_to_string("data/07.txt").unwrap();
         let input = Input::from_str(s.as_str()).expect("cannot parse input");
-        part2(input);
+        let _res = part2(input);
     }
 }
