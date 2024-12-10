@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::fs;
 use std::str::FromStr;
 
@@ -53,28 +52,36 @@ impl FromStr for Input {
 
 fn part1(input: Input) -> i64 {
     input.expressions.iter().fold(0, |acc, expr: &Expression| {
-        acc + part1_queue_stack(expr.expected, &expr.values)
+        acc + part1_queue_reversed(expr.expected, &expr.values)
     })
 }
 
-fn part1_queue_stack(expected: i64, values: &[i64]) -> i64 {
-    let mut queue: VecDeque<Pos> = VecDeque::new();
-    let start = Pos::new(values[0], 0);
-    queue.push_back(start);
-    while let Some(element) = queue.pop_back() {
-        if element.value > expected {
-            continue;
-        } else if element.value == expected && element.idx == values.len() - 1 {
-            return expected;
-        } else if element.idx < values.len() - 1 {
-            let next = values[element.idx + 1];
-            let mul_pos = element.mul(next);
-            if mul_pos.value <= expected {
-                queue.push_back(mul_pos);
+fn part1_queue_reversed(expected: i64, values: &[i64]) -> i64 {
+    let mut queue: Vec<Pos> = Vec::new();
+    let last = values.len();
+    let start = Pos::new(expected, last);
+    queue.push(start);
+    while let Some(element) = queue.pop() {
+        if element.idx > 0 {
+            let next_idx = element.idx - 1;
+            let next = values[next_idx];
+
+            // can be divided?
+            if let Some(pos) = element.div(next) {
+                if pos.value == 1 && next_idx == 0 {
+                    return expected;
+                } else {
+                    queue.push(pos);
+                }
             }
-            let sum_pos = element.sum(next);
-            if sum_pos.value <= expected {
-                queue.push_back(sum_pos);
+
+            // can subtract?
+            if let Some(pos) = element.sub(next) {
+                if pos.value > 0 {
+                    queue.push(pos);
+                } else if pos.value == 1 && next_idx == 0 {
+                    return expected;
+                }
             }
         }
     }
@@ -92,62 +99,180 @@ impl Pos {
         Pos { value, idx }
     }
 
-    fn mul(&self, other: i64) -> Self {
-        Pos {
-            value: self.value * other,
-            idx: self.idx + 1,
+    fn div(&self, other: i64) -> Option<Self> {
+        if self.value % other == 0 {
+            Some(
+                Pos {
+                    value: self.value / other,
+                    idx: self.idx - 1,
+                }
+            )
+        } else {
+            None
         }
     }
-    fn sum(&self, other: i64) -> Self {
-        Pos {
-            value: self.value + other,
-            idx: self.idx + 1,
-        }
+    
+    fn sub(&self, other: i64) -> Option<Self> {
+        Some(
+            Pos {
+                value: self.value - other,
+                idx: self.idx - 1,
+            }
+        )
     }
 
-    fn concat(&self, other: i64, size: usize) -> Self {
-        let val = self.value * (i64::pow(10, size as u32)) + other;
-        Pos {
-            value: val,
-            idx: self.idx + 1,
+    fn drop(&self, other: i64, size: usize) -> Option<Self> {
+        let scale = i64::pow(10, size as u32);
+
+        if self.value % scale == other {
+            let val = (self.value - other) / scale;
+            Some(Pos {
+                value: val,
+                idx: self.idx - 1,
+            })
+        } else {
+            None
         }
     }
 }
 
 fn part2(input: Input) -> i64 {
     input.expressions.iter().fold(0, |acc, expr: &Expression| {
-        acc + part2_queue_stack(expr.expected, &expr.values, &expr.sizes)
+        acc + part2_queue_reversed(expr.expected, &expr.values, &expr.sizes)
     })
 }
 
-fn part2_queue_stack(expected: i64, values: &[i64], sizes: &[usize]) -> i64 {
+
+fn part2_queue_reversed(expected: i64, values: &[i64], sizes: &[usize]) -> i64 {
     let mut queue: Vec<Pos> = Vec::new();
-    let start = Pos::new(values[0], 0);
+    let last = values.len();
+    let start = Pos::new(expected, last);
     queue.push(start);
     while let Some(element) = queue.pop() {
-        if element.value > expected {
-            continue;
-        } else if element.value == expected && element.idx == sizes.len() - 1 {
-            return expected;
-        } else if element.idx < sizes.len() - 1 {
-            let size = sizes[element.idx + 1];
-            let next = values[element.idx + 1];
-            let mul_pos = element.mul(next);
-            if mul_pos.value <= expected {
-                queue.push(mul_pos);
+        if element.idx > 0 {
+            let next_idx = element.idx - 1;
+            let size = sizes[next_idx];
+            let next = values[next_idx];
+
+            // can be divided?
+            if let Some(pos) = element.div(next) {
+                if pos.value == 1 && next_idx == 0 {
+                    return expected;
+                } else {
+                    queue.push(pos);
+                }
             }
-            let sum_pos = element.sum(next);
-            if sum_pos.value <= expected {
-                queue.push(sum_pos);
+
+            //can drop end?
+            if next == element.value {
+                //Concat will return empty string
+                if next_idx == 0 {
+                    // we are done
+                    return expected;
+                }
+            } else if let Some(pos) = element.drop(next, size) {
+                if pos.value > 0 {
+                    queue.push(pos);
+                } else if pos.value == 0 && next_idx == 0 {
+                    return expected;
+                }
             }
-            let concat_pos = element.concat(next, size);
-            if concat_pos.value <= expected {
-                queue.push(concat_pos);
+
+            // can subtract?
+            if let Some(pos) = element.sub(next) {
+                if pos.value > 0 {
+                    queue.push(pos);
+                } else if pos.value == 1 && next_idx == 0 {
+                    return expected;
+                }
             }
         }
     }
     0
 }
+
+
+// impl Pos {
+//     fn new(value: i64, idx: usize) -> Self {
+//         Pos { value, idx }
+//     }
+//
+//     fn mul(&self, other: i64) -> Self {
+//         Pos {
+//             value: self.value * other,
+//             idx: self.idx + 1,
+//         }
+//     }
+//
+//     fn sum(&self, other: i64) -> Self {
+//         Pos {
+//             value: self.value + other,
+//             idx: self.idx + 1,
+//         }
+//     }
+//
+//     fn concat(&self, other: i64, size: usize) -> Self {
+//         let val = self.value * (i64::pow(10, size as u32)) + other;
+//         Pos {
+//             value: val,
+//             idx: self.idx + 1,
+//         }
+//     }
+// }
+
+
+// fn part1_queue_stack(expected: i64, values: &[i64]) -> i64 {
+//     let mut queue: VecDeque<Pos> = VecDeque::new();
+//     let start = Pos::new(values[0], 0);
+//     queue.push_back(start);
+//     while let Some(element) = queue.pop_back() {
+//         if element.value > expected {
+//             continue;
+//         } else if element.value == expected && element.idx == values.len() - 1 {
+//             return expected;
+//         } else if element.idx < values.len() - 1 {
+//             let next = values[element.idx + 1];
+//             let mul_pos = element.mul(next);
+//             if mul_pos.value <= expected {
+//                 queue.push_back(mul_pos);
+//             }
+//             let sum_pos = element.sum(next);
+//             if sum_pos.value <= expected {
+//                 queue.push_back(sum_pos);
+//             }
+//         }
+//     }
+//     0
+// }
+
+// fn part2_queue_stack(expected: i64, values: &[i64], sizes: &[usize]) -> i64 {
+//     let mut queue: Vec<Pos> = Vec::new();
+//     let start = Pos::new(values[0], 0);
+//     queue.push(start);
+//     while let Some(element) = queue.pop() {
+//         if element.value > expected {
+//             continue;
+//         } else if element.value == expected && element.idx == sizes.len() - 1 {
+//             return expected;
+//         } else if element.idx < sizes.len() - 1 {
+//             let size = sizes[element.idx + 1];
+//             let next = values[element.idx + 1];
+//             let mul_pos = element.mul(next);
+//             if mul_pos.value <= expected {
+//                 queue.push(mul_pos);
+//             }
+//             let sum_pos = element.sum(next);
+//             if sum_pos.value <= expected {
+//                 queue.push(sum_pos);
+//             }
+//             let concat_pos = element.concat(next, size);
+//             if concat_pos.value <= expected {
+//                 queue.push(concat_pos);
+//             }
+//         }
+//     }
+//     0
+// }
 
 
 // fn part1_slow(input: Input) -> i64 {
