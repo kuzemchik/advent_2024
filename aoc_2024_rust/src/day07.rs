@@ -111,7 +111,7 @@ impl Pos {
             None
         }
     }
-    
+
     fn sub(&self, other: i64) -> Option<Self> {
         Some(
             Pos {

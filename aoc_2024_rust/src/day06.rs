@@ -161,7 +161,6 @@ fn part2(input: Input) -> i32 {
         dir: Up,
     };
 
-    let mut num_loops = 0;
     let mut new_stones = HashSet::new();
     while let Step(x_next, y_next) = step(&curr_pos, x_max, y_max) {
         if map[x_next][y_next] == '#' {
@@ -170,7 +169,6 @@ fn part2(input: Input) -> i32 {
             if map[x_next][y_next] == '.' {
                 map[x_next][y_next] = '#';
                 if loops(&curr_pos, &map) {
-                    num_loops += 1;
                     new_stones.insert((x_next, y_next));
                 }
                 map[x_next][y_next] = '.';
@@ -184,7 +182,6 @@ fn part2(input: Input) -> i32 {
         }
     }
 
-    println!("loops: {}", num_loops);
     new_stones.len() as i32
 }
 //
