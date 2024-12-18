@@ -10,6 +10,12 @@ mod day09;
 mod day10;
 mod day11;
 mod day12;
+mod day13;
+mod day14;
+mod day15;
+mod day16;
+mod day17;
+mod day18;
 
 fn main() {
     day01::print();
@@ -24,4 +30,10 @@ fn main() {
     day10::print();
     day11::print();
     day12::print();
+    day13::print();
+    day14::print();
+    day15::print();
+    day16::print();
+    day17::print();
+    day18::print();
 }
